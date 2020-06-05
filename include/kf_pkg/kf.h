@@ -1,6 +1,6 @@
 #include <Eigen/Dense>
 #include <ros/ros.h>
-#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/PoseStampedWithCovariance.h>
 #include <nav_msgs/Odometry.h>
 #include <tf/tf.h>
 
@@ -77,25 +77,48 @@ public:
 		R_ = R_in;
 	}
 
-	void PoseCallBack(const geometry_msgs::PoseStamped::ConstPtr& pose)
+	void PoseCallBack(const geometry_msgs::PoseStampedWithCovariance::ConstPtr& pose)
 	{
 		Eigen::VectorXd measurement;
-		measurement(0) = pose.position.x;
-		measurement(1) = pose.position.y;
-		measurement(2) = pose.position.z;
+		measurement(0) = pose->position.x;
+		measurement(1) = pose->position.y;
+		measurement(2) = pose->position.z;
 		tf::Quaternion quat;
-		tf::quaternionMsgToTF(pose.orientation,quat);
+		tf::quaternionMsgToTF(pose->orientation,quat);
 		double roll, pitch, yaw;
 		tf::Matrix3x3(quat).getRPY(roll, pitch, yaw);
 		measurement(3) = roll;
 		measurement(4) = pitch;
 		measurement(5) = yaw;
+
+		cur_time = (pose->header.stamp).toSec();
+
 		if (!IsInitialized())
 		{
 			Initialization(measurement);
-			last_time = cur_time = (pose.header.stamp).toSec();
-			
+			last_time = cur_time;
+
+			Eigen::Matrix5d Q_in = Eigen::Matrix5d::Identity();
+			kf.setQ(Q_in);
+
+			Eigen::MatrixXd H_in(3,5);
+			H_in << 1, 0, 0, 0, 0,
+					0, 1, 0, 0, 0,
+					0, 0, 1, 0, 0;
+			kf.setH(H_in);
 		}
+
+		double delta_t = cur_time - last_time;
+		last_time = cur_time;
+
+		// set F
+		Eigen::MatrixXd F_in(5,5);
+		F_in << 1, 0, 0, delta_t, 0,
+				0, 1, 0, delta_t, 0,
+				0, 0, 1, 0, delta_t,
+				0, 0, 0, 1, 0.,
+				0, 0, 0, 0, 1;
+		kf.setF(F_in);
 	}
 
 private:
@@ -113,5 +136,7 @@ private:
 	Eigen::MatrixXd H_;
 
 	Eigen::MatrixXd R_;
+
+	double last_time, cur_time;
 
 };
