@@ -13,11 +13,13 @@ class kf
 public:
 	kf(ros::NodeHandle nh)
 	{
-		message_filters::Subscriber<geometry_msgs::PoseWithCovarianceStamped> pose_sub(nh, "orb_slam2_mono/pose", 1);
+		message_filters::Subscriber<geometry_msgs::PoseWithCovarianceStamped> pose_sub(nh, "marker_pose", 1);
 		message_filters::Subscriber<nav_msgs::Odometry> odom_sub(nh, "odom", 1);
 		typedef message_filters::sync_policies::ApproximateTime<geometry_msgs::PoseWithCovarianceStamped, nav_msgs::Odometry> approximate_policy;
 		message_filters::Synchronizer<approximate_policy> sync(approximate_policy(10),pose_sub, odom_sub);
 		sync.registerCallback(boost::bind(&kf::PoseCallBack, this,_1, _2));
+
+		pose_pub = nh.advertise<geometry_msgs::PoseWithCovarianceStamped>("filter_pose",1);
 
 
 		is_initialized_ = false;
