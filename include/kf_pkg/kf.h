@@ -102,18 +102,18 @@ public:
 		measurement(4) = pitch;
 		measurement(5) = yaw;
 
-		//  status (x,y,theta,v,w)
-		Eigen::VectorXd status_;
-		status_(0) = pose->pose.pose.position.x;
-		status_(1) = pose->pose.pose.position.y;
-		status_(2) = yaw;
-		status_(3) = odom->twist.twist.linear.x;
-		status_(4) = odom->twist.twist.angular.z;
-
 		cur_time = (pose->header.stamp).toSec();
 
 		if (!IsInitialized())
 		{
+			//  status (x,y,theta,v,w)
+			Eigen::VectorXd status_;
+			status_(0) = pose->pose.pose.position.x;
+			status_(1) = pose->pose.pose.position.y;
+			status_(2) = yaw;
+			status_(3) = odom->twist.twist.linear.x;
+			status_(4) = odom->twist.twist.angular.z;
+
 			Initialization(status_);
 			last_time = cur_time;
 			Eigen::MatrixXd Q_in = Eigen::MatrixXd::Identity(5,5);
