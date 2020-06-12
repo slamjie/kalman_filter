@@ -93,14 +93,16 @@ public:
 		Eigen::VectorXd measurement;
 		measurement(0) = pose->pose.pose.position.x;
 		measurement(1) = pose->pose.pose.position.y;
-		measurement(2) = pose->pose.pose.position.z;
+		// measurement(2) = pose->pose.pose.position.z;
 		tf::Quaternion quat;
 		tf::quaternionMsgToTF(pose->pose.pose.orientation,quat);
 		double roll, pitch, yaw;
 		tf::Matrix3x3(quat).getRPY(roll, pitch, yaw);
-		measurement(3) = roll;
-		measurement(4) = pitch;
-		measurement(5) = yaw;
+		// measurement(3) = roll;
+		// measurement(4) = pitch;
+		measurement(2) = yaw;
+		measurement(3) = odom->twist.twist.linear.x;
+		measurement(4) = odom->twist.twist.angular.z;
 
 		cur_time = (pose->header.stamp).toSec();
 
@@ -119,11 +121,23 @@ public:
 			Eigen::MatrixXd Q_in = Eigen::MatrixXd::Identity(5,5);
 			setQ(Q_in);
 
-			Eigen::MatrixXd H_in(3,5);
+			Eigen::MatrixXd H_in(5,5);
 			H_in << 1, 0, 0, 0, 0,
 					0, 1, 0, 0, 0,
-					0, 0, 1, 0, 0;
+					0, 0, 1, 0, 0,
+					0, 0, 0, 1, 0,
+					0, 0, 0, 0, 1;
 			setH(H_in);
+
+			Eigen::MatrixXd P_in(5,5);
+			P_in << pose->pose.covariance[0], 0, 0, 0, 0,
+					0, pose->pose.covariance[6], 0, 0, 0,
+					0, 0, pose->pose.covariance[35], 0,0,
+					0, 0, 0, odom->twist.covariance[0], 0,
+					0, 0, 0, 0, odom->twist.covariance[35];
+			setP(P_in);
+			// for initialize
+			setR(P_in);
 		}
 
 		double delta_t = cur_time - last_time;
@@ -138,13 +152,13 @@ public:
 				0, 0, 0, 0, 1;
 		setF(F_in);
 
-		Eigen::MatrixXd P_in(5,5);
-		P_in << pose->pose.covariance[0], 0, 0, 0, 0,
+		Eigen::MatrixXd R_in(5,5);
+		R_in << pose->pose.covariance[0], 0, 0, 0, 0,
 				0, pose->pose.covariance[6], 0, 0, 0,
 				0, 0, pose->pose.covariance[35], 0,0,
-				0, 0, 0, 0, 0,
-				0, 0, 0, 0, 0;
-		setP(P_in);
+				0, 0, 0, odom->twist.covariance[0], 0,
+				0, 0, 0, 0, odom->twist.covariance[35];
+		setR(R_in);
 
 		// prediction
 		Prediction();
@@ -154,18 +168,13 @@ public:
 		Eigen::VectorXd tmp_x = getx_();
 		geometry_msgs::PoseWithCovarianceStamped filter_pose;
 		filter_pose.header = pose->header;
-		filter_pose.pose.pose.position.x = tmp_x[0];
-		filter_pose.pose.pose.position.y = tmp_x[1];
-		filter_pose.pose.pose.position.z = tmp_x[2];
-		geometry_msgs::Quaternion tmp_q = tf::createQuaternionMsgFromRollPitchYaw(tmp_x[3], tmp_x[4], tmp_x[5]);
+		filter_pose.pose.pose.position.x = tmp_x(0);
+		filter_pose.pose.pose.position.y = tmp_x(1);
+		filter_pose.pose.pose.position.z = 0.0;
+		geometry_msgs::Quaternion tmp_q = tf::createQuaternionMsgFromYaw(tmp_x(2));
 		filter_pose.pose.pose.orientation = tmp_q;
 
 		pose_pub.publish(filter_pose);
-	}
-
-	void OdomCallBack(const nav_msgs::Odometry::ConstPtr &odom)
-	{
-
 	}
 
 private:
