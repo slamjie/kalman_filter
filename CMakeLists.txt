@@ -75,7 +75,8 @@ find_package(Eigen3 REQUIRED)
 ## Generate added messages and services with any dependencies listed here
 # generate_messages(
 #   DEPENDENCIES
-#   geometry_msgs#   std_msgs
+#   geometry_msgs
+#   std_msgs
 # )
 
 ################################################
